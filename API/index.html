@@ -1,0 +1,563 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Valuation Console — Car Price Predictor</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&family=Inter:wght@400;500;600&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#12171b;
+    --panel:#1a2126;
+    --panel-2:#202932;
+    --border:#2c363d;
+    --text:#e7edf0;
+    --muted:#8b98a1;
+    --accent:#e8a33d;
+    --accent-2:#57c785;
+    --danger:#e2574c;
+  }
+  *{box-sizing:border-box}
+  body{
+    background:var(--bg);
+    color:var(--text);
+    font-family:'Inter',sans-serif;
+    background-image:
+      radial-gradient(ellipse 80% 50% at 50% -20%, rgba(232,163,61,0.08), transparent),
+      repeating-linear-gradient(0deg, rgba(255,255,255,0.015) 0px, rgba(255,255,255,0.015) 1px, transparent 1px, transparent 3px);
+  }
+  .font-dash{font-family:'Rajdhani',sans-serif}
+  .font-mono{font-family:'Space Mono',monospace}
+
+  .panel{background:var(--panel); border:1px solid var(--border);}
+
+  input[type="text"], input[type="number"], select{
+    background:var(--panel-2);
+    border:1px solid var(--border);
+    color:var(--text);
+    font-family:'Inter',sans-serif;
+  }
+  input[type="text"]:focus, input[type="number"]:focus, select:focus{
+    outline:none;
+    border-color:var(--accent);
+    box-shadow:0 0 0 3px rgba(232,163,61,0.15);
+  }
+  label{color:var(--muted); font-size:0.72rem; letter-spacing:.04em; text-transform:uppercase;}
+
+  .seg-btn{
+    background:var(--panel-2);
+    border:1px solid var(--border);
+    color:var(--muted);
+    transition:all .15s ease;
+  }
+  .seg-btn.active{
+    background:rgba(232,163,61,0.12);
+    border-color:var(--accent);
+    color:var(--accent);
+  }
+
+  .btn-primary{
+    background:var(--accent);
+    color:#181205;
+    font-weight:600;
+    transition:filter .15s ease, transform .1s ease;
+  }
+  .btn-primary:hover{filter:brightness(1.08)}
+  .btn-primary:active{transform:scale(0.98)}
+  .btn-primary:disabled{opacity:.5; cursor:not-allowed}
+
+  .btn-ghost{
+    background:transparent;
+    border:1px solid var(--border);
+    color:var(--muted);
+    transition:all .15s ease;
+  }
+  .btn-ghost:hover{border-color:var(--muted); color:var(--text)}
+
+  /* Ticket */
+  .ticket{
+    background:var(--panel);
+    border:1px solid var(--border);
+    position:sticky;
+    top:1.5rem;
+  }
+  .ticket-notch{position:relative;}
+  .ticket-notch::before, .ticket-notch::after{
+    content:"";
+    position:absolute;
+    width:18px; height:18px;
+    background:var(--bg);
+    border:1px solid var(--border);
+    border-radius:50%;
+    top:-9px;
+  }
+  .ticket-notch::before{ left:-10px; }
+  .ticket-notch::after{ right:-10px; }
+  .ticket-dash{
+    border-top:2px dashed var(--border);
+  }
+
+  .odometer{
+    font-family:'Space Mono',monospace;
+    letter-spacing:0.02em;
+  }
+  .odometer .digit{
+    display:inline-block;
+    transition:transform .4s cubic-bezier(.2,.9,.3,1), opacity .4s ease;
+  }
+  .odometer.rolling .digit{
+    animation:roll .5s ease;
+  }
+  @keyframes roll{
+    0%{transform:translateY(-14px); opacity:0;}
+    100%{transform:translateY(0); opacity:1;}
+  }
+
+  .spinner{
+    border:2px solid rgba(232,163,61,0.25);
+    border-top-color:var(--accent);
+    border-radius:50%;
+    width:16px; height:16px;
+    animation:spin .7s linear infinite;
+  }
+  @keyframes spin{to{transform:rotate(360deg)}}
+
+  ::-webkit-scrollbar{width:8px}
+  ::-webkit-scrollbar-track{background:var(--bg)}
+  ::-webkit-scrollbar-thumb{background:var(--border); border-radius:4px}
+</style>
+</head>
+<body class="min-h-screen">
+
+<div class="max-w-6xl mx-auto px-4 sm:px-6 py-8">
+
+  <!-- Header -->
+  <div class="mb-6">
+    <div class="flex items-center gap-2 mb-1">
+      <div class="w-2 h-2 rounded-full" style="background:var(--accent)"></div>
+      <span class="text-xs tracking-widest uppercase" style="color:var(--muted)">ML Appraisal Tool</span>
+    </div>
+    <h1 class="font-dash text-3xl sm:text-4xl font-700 tracking-wide">VALUATION CONSOLE</h1>
+    <p class="text-sm mt-1" style="color:var(--muted)">Enter the vehicle spec, hit predict, get a market estimate from your FastAPI model.</p>
+  </div>
+
+  <!-- Endpoint bar -->
+  <div class="panel rounded-lg p-3 mb-6 flex flex-col sm:flex-row gap-2 sm:items-center">
+    <label class="shrink-0 sm:pl-1" style="text-transform:none; font-size:0.75rem;">Endpoint URL</label>
+    <input id="endpoint" type="text" value="http://localhost:8000/predict"
+      class="flex-1 rounded px-3 py-2 text-sm font-mono" placeholder="https://your-api.example.com/predict">
+    <div class="flex gap-2">
+      <button id="testBtn" class="btn-ghost rounded px-3 py-2 text-xs whitespace-nowrap">Test connection</button>
+    </div>
+  </div>
+  <div id="endpointStatus" class="text-xs mb-6 -mt-4 ml-1 hidden"></div>
+
+  <div class="grid grid-cols-1 lg:grid-cols-5 gap-6">
+
+    <!-- FORM -->
+    <div class="lg:col-span-3 panel rounded-lg p-5">
+      <div class="flex items-center justify-between mb-4">
+        <h2 class="font-dash text-lg font-600 tracking-wide">VEHICLE SPEC</h2>
+        <button id="sampleBtn" class="text-xs btn-ghost rounded px-3 py-1.5">Load sample</button>
+      </div>
+
+      <form id="predictForm" class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+
+        <div>
+          <label>Manufacturer</label>
+          <select id="Manufacturer" required class="w-full rounded px-3 py-2 mt-1 text-sm">
+            <option value="" disabled selected>Loading manufacturers…</option>
+          </select>
+        </div>
+
+        <div>
+          <label>Model</label>
+          <input id="Model" required type="text" placeholder="e.g. RX 450" class="w-full rounded px-3 py-2 mt-1 text-sm">
+        </div>
+
+        <div>
+          <label>Production year</label>
+          <input id="Prod_year" required type="number" min="1960" max="2027" placeholder="2010" class="w-full rounded px-3 py-2 mt-1 text-sm">
+        </div>
+
+        <div>
+          <label>Category</label>
+          <select id="Category" required class="w-full rounded px-3 py-2 mt-1 text-sm">
+            <option value="" disabled selected>Loading categories…</option>
+          </select>
+        </div>
+
+        <div>
+          <label>Levy</label>
+          <input id="Levy" required type="number" min="0" step="1" placeholder="0 if none" class="w-full rounded px-3 py-2 mt-1 text-sm">
+        </div>
+
+        <div>
+          <label>Engine volume (L)</label>
+          <input id="Engine_volume" required type="number" min="0" step="0.1" placeholder="3.5" class="w-full rounded px-3 py-2 mt-1 text-sm">
+        </div>
+
+        <div>
+          <label>Mileage (km)</label>
+          <input id="Mileage" required type="number" min="0" step="1" placeholder="186005" class="w-full rounded px-3 py-2 mt-1 text-sm">
+        </div>
+
+        <div>
+          <label>Cylinders</label>
+          <input id="Cylinders" required type="number" min="1" step="0.5" placeholder="6" class="w-full rounded px-3 py-2 mt-1 text-sm">
+        </div>
+
+        <div>
+          <label>Fuel type</label>
+          <select id="Fuel_type" required class="w-full rounded px-3 py-2 mt-1 text-sm">
+            <option value="" disabled selected>Loading fuel types…</option>
+          </select>
+        </div>
+
+        <div>
+          <label>Gear box type</label>
+          <select id="Gear_box_type" required class="w-full rounded px-3 py-2 mt-1 text-sm">
+            <option>Automatic</option><option>Tiptronic</option><option>Manual</option><option>Variator</option>
+          </select>
+        </div>
+
+        <div>
+          <label>Drive wheels</label>
+          <select id="Drive_wheels" required class="w-full rounded px-3 py-2 mt-1 text-sm">
+            <option value="4x4">4x4</option><option value="Front">Front</option><option value="Rear">Rear</option>
+          </select>
+        </div>
+
+        <div>
+          <label>Wheel</label>
+          <select id="Wheel" required class="w-full rounded px-3 py-2 mt-1 text-sm">
+            <option value="Left wheel">Left wheel</option>
+            <option value="Right-hand drive">Right-hand drive</option>
+          </select>
+        </div>
+
+        <div>
+          <label>Color</label>
+          <select id="Color" required class="w-full rounded px-3 py-2 mt-1 text-sm">
+            <option>Silver</option><option>Black</option><option>White</option><option>Grey</option>
+            <option>Blue</option><option>Red</option><option>Green</option><option>Sky blue</option>
+            <option>Orange</option><option>Yellow</option><option>Brown</option><option>Golden</option>
+            <option>Beige</option><option>Carnelian red</option><option>Purple</option><option>Pink</option>
+          </select>
+        </div>
+
+        <div>
+          <label>Airbags</label>
+          <input id="Airbags" required type="number" min="0" max="16" step="1" placeholder="12" class="w-full rounded px-3 py-2 mt-1 text-sm">
+        </div>
+
+        <div class="sm:col-span-2">
+          <label class="block mb-1.5">Leather interior</label>
+          <div class="flex gap-2">
+            <button type="button" data-val="Yes" class="seg-toggle seg-btn active rounded px-4 py-2 text-sm flex-1">Yes</button>
+            <button type="button" data-val="No" class="seg-toggle seg-btn rounded px-4 py-2 text-sm flex-1">No</button>
+          </div>
+          <input type="hidden" id="Leather_interior" value="Yes">
+        </div>
+
+        <div class="sm:col-span-2 flex gap-3 mt-2">
+          <button type="submit" id="submitBtn" class="btn-primary rounded px-5 py-2.5 text-sm flex items-center gap-2">
+            <span id="submitLabel">Predict price</span>
+          </button>
+          <button type="button" id="resetBtn" class="btn-ghost rounded px-5 py-2.5 text-sm">Reset</button>
+        </div>
+      </form>
+    </div>
+
+    <!-- TICKET -->
+    <div class="lg:col-span-2">
+      <div class="ticket rounded-lg p-5">
+        <div class="flex items-center justify-between">
+          <span class="text-xs tracking-widest uppercase" style="color:var(--muted)">Estimate</span>
+          <span id="ticketId" class="text-xs font-mono" style="color:var(--muted)">No. —</span>
+        </div>
+
+        <div class="ticket-notch ticket-dash my-4"></div>
+
+        <div id="resultZone" class="min-h-[110px] flex flex-col justify-center">
+          <div id="idleState" class="text-sm" style="color:var(--muted)">
+            Fill in the spec and press <span style="color:var(--text)">Predict price</span> to generate an estimate.
+          </div>
+
+          <div id="loadingState" class="hidden flex items-center gap-2 text-sm" style="color:var(--muted)">
+            <div class="spinner"></div> Running the model…
+          </div>
+
+          <div id="priceState" class="hidden">
+            <div class="odometer text-4xl sm:text-5xl font-700" style="color:var(--accent)" id="priceDisplay">$0</div>
+            <div class="text-xs mt-2" style="color:var(--muted)">Predicted market value (model estimate, not a quote)</div>
+          </div>
+
+          <div id="errorState" class="hidden">
+            <div class="text-sm font-600" style="color:var(--danger)" id="errorTitle">Prediction failed</div>
+            <div class="text-xs mt-1" style="color:var(--muted)" id="errorDetail"></div>
+          </div>
+        </div>
+
+        <div class="ticket-notch ticket-dash my-4"></div>
+
+        <div id="specSummary" class="text-xs font-mono space-y-1" style="color:var(--muted)"></div>
+
+        <div class="flex items-center justify-between mt-4 pt-3" style="border-top:1px solid var(--border)">
+          <span class="text-xs font-mono" style="color:var(--muted)" id="timestamp">--:--:--</span>
+          <span class="text-xs font-mono" style="color:var(--muted)">FASTAPI · /predict</span>
+        </div>
+      </div>
+
+      <details class="mt-3 text-xs" style="color:var(--muted)">
+        <summary class="cursor-pointer hover:text-white select-none">Raw response</summary>
+        <pre id="rawResponse" class="font-mono mt-2 p-3 rounded panel overflow-x-auto whitespace-pre-wrap"></pre>
+      </details>
+    </div>
+  </div>
+</div>
+
+<script>
+  const sample = {
+    Levy: 1399, Manufacturer: "LEXUS", Model: "RX 450", Prod_year: 2010,
+    Category: "Jeep", Leather_interior: "Yes", Fuel_type: "Hybrid",
+    Engine_volume: 3.5, Mileage: 186005, Cylinders: 6.0, Gear_box_type: "Automatic",
+    Drive_wheels: "4x4", Wheel: "Left wheel", Color: "Silver", Airbags: 12
+  };
+
+  const $ = id => document.getElementById(id);
+  let leatherValue = "Yes";
+
+  async function populateDatalist(endpoint, datalistId) {
+    try {
+      const res = await fetch(endpoint);
+      if (!res.ok) throw new Error(`${endpoint} returned ${res.status}`);
+      const values = await res.json();
+      const datalist = $(datalistId);
+      datalist.innerHTML = '';
+      values.forEach(value => {
+        const opt = document.createElement('option');
+        opt.value = value;
+        datalist.appendChild(opt);
+      });
+    } catch (error) {
+      console.warn(`Could not load ${endpoint}:`, error);
+    }
+  }
+
+  async function populateSelect(endpoint, selectId, placeholder) {
+    try {
+      const res = await fetch(endpoint);
+      if (!res.ok) throw new Error(`${endpoint} returned ${res.status}`);
+      const values = await res.json();
+      const select = $(selectId);
+      select.innerHTML = '';
+      if (placeholder) {
+        const placeholderOption = document.createElement('option');
+        placeholderOption.value = '';
+        placeholderOption.disabled = true;
+        placeholderOption.selected = true;
+        placeholderOption.textContent = placeholder;
+        select.appendChild(placeholderOption);
+      }
+      values.forEach(value => {
+        const opt = document.createElement('option');
+        opt.value = value;
+        opt.textContent = value;
+        select.appendChild(opt);
+      });
+    } catch (error) {
+      console.warn(`Could not load ${endpoint}:`, error);
+    }
+  }
+
+  async function loadDynamicOptions() {
+    await Promise.all([
+      populateSelect('/manufacturers/', 'Manufacturer', 'Choose manufacturer'),
+      populateSelect('/categories/', 'Category', 'Choose category'),
+      populateSelect('/fuel-types/', 'Fuel_type', 'Choose fuel type')
+    ]);
+  }
+
+  loadDynamicOptions().catch(error => console.warn('Option loading failed:', error));
+
+  // segmented toggle
+  document.querySelectorAll('.seg-toggle').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      document.querySelectorAll('.seg-toggle').forEach(b=>b.classList.remove('active'));
+      btn.classList.add('active');
+      leatherValue = btn.dataset.val;
+      $('Leather_interior').value = leatherValue;
+    });
+  });
+
+  function fillForm(data){
+    $('Levy').value = data.Levy;
+    $('Manufacturer').value = data.Manufacturer;
+    $('Model').value = data.Model;
+    $('Prod_year').value = data.Prod_year;
+    $('Category').value = data.Category;
+    $('Fuel_type').value = data.Fuel_type;
+    $('Engine_volume').value = data.Engine_volume;
+    $('Mileage').value = data.Mileage;
+    $('Cylinders').value = data.Cylinders;
+    $('Gear_box_type').value = data.Gear_box_type;
+    $('Drive_wheels').value = data.Drive_wheels;
+    $('Wheel').value = data.Wheel;
+    $('Color').value = data.Color;
+    $('Airbags').value = data.Airbags;
+    leatherValue = data.Leather_interior;
+    document.querySelectorAll('.seg-toggle').forEach(b=>{
+      b.classList.toggle('active', b.dataset.val === leatherValue);
+    });
+    $('Leather_interior').value = leatherValue;
+  }
+
+  $('sampleBtn').addEventListener('click', ()=> fillForm(sample));
+
+  $('resetBtn').addEventListener('click', ()=>{
+    $('predictForm').reset();
+    leatherValue = "Yes";
+    document.querySelectorAll('.seg-toggle').forEach(b=>b.classList.toggle('active', b.dataset.val==="Yes"));
+    $('Leather_interior').value = "Yes";
+    showState('idle');
+    $('rawResponse').textContent = '';
+    $('specSummary').innerHTML = '';
+  });
+
+  function buildPayload(){
+    return {
+      Levy: Number($('Levy').value),
+      Manufacturer: $('Manufacturer').value.trim(),
+      Model: $('Model').value.trim(),
+      Prod_year: Number($('Prod_year').value),
+      Category: $('Category').value,
+      Leather_interior: $('Leather_interior').value,
+      Fuel_type: $('Fuel_type').value,
+      Engine_volume: Number($('Engine_volume').value),
+      Mileage: Number($('Mileage').value),
+      Cylinders: Number($('Cylinders').value),
+      Gear_box_type: $('Gear_box_type').value,
+      Drive_wheels: $('Drive_wheels').value,
+      Wheel: $('Wheel').value,
+      Color: $('Color').value,
+      Airbags: Number($('Airbags').value)
+    };
+  }
+
+  function showState(state){
+    ['idleState','loadingState','priceState','errorState'].forEach(id=>$(id).classList.add('hidden'));
+    if(state==='idle') $('idleState').classList.remove('hidden');
+    if(state==='loading') $('loadingState').classList.remove('hidden');
+    if(state==='price') $('priceState').classList.remove('hidden');
+    if(state==='error') $('errorState').classList.remove('hidden');
+  }
+
+  function extractPrice(data){
+    if (typeof data === 'number') return data;
+    const keys = ['predicted_price','prediction','price','predicted_value','result','value','output'];
+    for (const k of keys){
+      if (data && typeof data[k] !== 'undefined'){
+        let v = Array.isArray(data[k]) ? data[k][0] : data[k];
+        if (typeof v === 'number') return v;
+        if (typeof v === 'string' && !isNaN(parseFloat(v))) return parseFloat(v);
+      }
+    }
+    if (data && typeof data === 'object'){
+      for (const k in data){
+        if (typeof data[k] === 'number') return data[k];
+      }
+    }
+    return null;
+  }
+
+  function renderTicket(payload){
+    $('ticketId').textContent = 'No. ' + Math.floor(100000 + Math.random()*899999);
+    $('timestamp').textContent = new Date().toLocaleTimeString();
+    $('specSummary').innerHTML = `
+      <div>${payload.Manufacturer || '—'} ${payload.Model || ''} · ${payload.Prod_year || '—'}</div>
+      <div>${payload.Category || '—'} · ${payload.Fuel_type || '—'} · ${payload.Gear_box_type || '—'}</div>
+      <div>${payload.Mileage?.toLocaleString() || '—'} km · ${payload.Engine_volume || '—'}L · ${payload.Cylinders || '—'} cyl</div>
+    `;
+  }
+
+  async function testConnection(){
+    const url = $('endpoint').value.trim();
+    const statusEl = $('endpointStatus');
+    statusEl.classList.remove('hidden');
+    statusEl.style.color = 'var(--muted)';
+    statusEl.textContent = 'Checking…';
+    try{
+      const res = await fetch(url, { method: 'OPTIONS' }).catch(()=>fetch(url));
+      statusEl.style.color = 'var(--accent-2)';
+      statusEl.textContent = 'Endpoint reachable.';
+    }catch(e){
+      statusEl.style.color = 'var(--danger)';
+      statusEl.textContent = 'Could not reach endpoint — check the URL, that the server is running, and CORS settings.';
+    }
+  }
+  $('testBtn').addEventListener('click', testConnection);
+
+  $('predictForm').addEventListener('submit', async (e)=>{
+    e.preventDefault();
+    const url = $('endpoint').value.trim();
+    if(!url){ alert('Enter the API endpoint URL first.'); return; }
+
+    const payload = buildPayload();
+    renderTicket(payload);
+    showState('loading');
+    $('submitBtn').disabled = true;
+    $('rawResponse').textContent = '';
+
+    try{
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+
+      const text = await res.text();
+      let data;
+      try { data = JSON.parse(text); } catch { data = text; }
+
+      $('rawResponse').textContent = typeof data === 'string' ? data : JSON.stringify(data, null, 2);
+
+      if(!res.ok){
+        showState('error');
+        $('errorTitle').textContent = `Server responded ${res.status}`;
+        $('errorDetail').textContent = typeof data === 'string' ? data : (data.detail || 'Check the raw response below for details.');
+        return;
+      }
+
+      const price = extractPrice(data);
+      if(price === null){
+        showState('error');
+        $('errorTitle').textContent = 'Could not parse a price';
+        $('errorDetail').textContent = 'The response didn\'t contain a recognizable numeric field. Check the raw response below.';
+        return;
+      }
+
+      const priceEl = $('priceDisplay');
+      priceEl.textContent = '$' + Math.round(price).toLocaleString();
+      priceEl.parentElement.classList.remove('hidden');
+      const odo = priceEl;
+      odo.classList.remove('rolling'); void odo.offsetWidth; odo.classList.add('rolling');
+      showState('price');
+
+    }catch(err){
+      showState('error');
+      $('errorTitle').textContent = 'Request failed';
+      $('errorDetail').textContent = 'Network error or blocked by CORS. Make sure the FastAPI server is running and has CORSMiddleware enabled for this origin.';
+      $('rawResponse').textContent = String(err);
+    }finally{
+      $('submitBtn').disabled = false;
+    }
+  });
+
+  // init
+  fillForm(sample);
+</script>
+</body>
+</html>

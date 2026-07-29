@@ -1,4 +1,6 @@
 from fastapi import FastAPI, HTTPException
+from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 import pickle
 import pandas as pd
@@ -7,7 +9,6 @@ import traceback
 
 # initialize the FastAPI app
 app = FastAPI()
-
 
 with open("../models/randomForestModel.pkl", "rb") as f:
     model = pickle.load(f)
@@ -39,10 +40,14 @@ class CarInput(BaseModel):
     Color: str
     Airbags: int
 
+cars_df = pd.read_csv("../data/car_price_prediction.csv")
+
+app.mount("/static", StaticFiles(directory=".", html=True), name="static")
 
 @app.get("/")
 def read_root():
-    return {"message": "Welcome to the Car Price Prediction API!"}
+    return FileResponse("index.html")
+
 
 
 @app.post("/predict/")
@@ -96,3 +101,15 @@ def predict(car_data: CarInput):
     except Exception as e:
         traceback.print_exc()
         raise HTTPException(status_code=400, detail=str(e))
+
+@app.get("/manufacturers/")
+def get_manufacturers():
+    return cars_df["Manufacturer"].unique().tolist()
+
+@app.get("/categories/")
+def get_categories():
+    return cars_df["Category"].unique().tolist()
+
+@app.get("/fuel-types/")
+def get_fuel_types():
+    return cars_df["Fuel type"].unique().tolist()
