@@ -113,3 +113,11 @@ def get_categories():
 @app.get("/fuel-types/")
 def get_fuel_types():
     return cars_df["Fuel type"].unique().tolist()
+
+@app.get("/gear-box-types/")
+def get_gear_box_types():
+    return cars_df["Gear box type"].unique().tolist()
+
+@app.get("/wheels/")
+def get_wheels():
+    return cars_df["Wheel"].unique().tolist()

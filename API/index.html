@@ -219,7 +219,7 @@
         <div>
           <label>Gear box type</label>
           <select id="Gear_box_type" required class="w-full rounded px-3 py-2 mt-1 text-sm">
-            <option>Automatic</option><option>Tiptronic</option><option>Manual</option><option>Variator</option>
+            <option value="" disabled selected>Loading gear box options…</option>
           </select>
         </div>
 
@@ -233,8 +233,7 @@
         <div>
           <label>Wheel</label>
           <select id="Wheel" required class="w-full rounded px-3 py-2 mt-1 text-sm">
-            <option value="Left wheel">Left wheel</option>
-            <option value="Right-hand drive">Right-hand drive</option>
+            <option value="" disabled selected>Loading wheel options…</option>
           </select>
         </div>
 
@@ -377,7 +376,9 @@
     await Promise.all([
       populateSelect('/manufacturers/', 'Manufacturer', 'Choose manufacturer'),
       populateSelect('/categories/', 'Category', 'Choose category'),
-      populateSelect('/fuel-types/', 'Fuel_type', 'Choose fuel type')
+      populateSelect('/fuel-types/', 'Fuel_type', 'Choose fuel type'),
+      populateSelect('/gear-box-types/', 'Gear_box_type', 'Choose gear box type'),
+      populateSelect('/wheels/', 'Wheel', 'Choose wheel')
     ]);
   }
 
